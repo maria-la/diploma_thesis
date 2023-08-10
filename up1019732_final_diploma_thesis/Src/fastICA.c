@@ -1,21 +1,14 @@
-#include "arm_math.h"
-#include "whit.h"
-#include "centerRows.h"
-#include "normRows.h"
-#include <stdlib.h>
-#include <float.h>
-#include <math.h>
-
 // Constants
 #define TOL 		1e-6   //Convergence criteria
 #define MAX_ITERS 	100    // Max # iterations
 
 void fastICA(arm_matrix_instance_f32 *matrix, arm_matrix_instance_f32 *Zica, uint16_t r){
+	// Initialise necessary matrices and variables
 	arm_matrix_instance_f32 Z, mHelp, W, Sk, G, Gp, mHelp2, Gpt, Wn;
 
 	float32_t Zdata[matrix->numCols*matrix->numRows];
-    arm_mat_init_f32 (&Z, matrix->numCols, matrix->numRows, Zdata);
-    arm_mat_trans_f32 (matrix, &Z);
+    	arm_mat_init_f32 (&Z, matrix->numCols, matrix->numRows, Zdata);
+    	arm_mat_trans_f32 (matrix, &Z);
 
 	uint16_t numCols = Z.numCols;
 	uint16_t numRows = Z.numRows;
@@ -49,23 +42,28 @@ void fastICA(arm_matrix_instance_f32 *matrix, arm_matrix_instance_f32 *Zica, uin
 	arm_mat_init_f32(&W, r, numRows, wData);
 	arm_mat_init_f32(&Wn, r, numRows, wData2);
 
+	/*Set random initial weights*/
 	for(i=0; i<(r*numCols); i++){
 		wData[i] = ((float32_t)rand()/RAND_MAX);
 	}
 
+	/*Center Data*/
 	centerRows(&Z, &mHelp);
+
+	/*Whiten Data*/
 	whitenRows(&mHelp, &Z);
 
 	arm_mat_trans_f32 (&Z, &mHelp2);
 
-
+////*Perform Fast ICA*////////////////////////////////////////////////////////////////////////////////////////
 	float32_t delta = FLT_MAX;
 
 	while((delta>TOL) & (k<MAX_ITERS)){
 		k++;
-
+		/*Save last weights*/
 		arm_copy_f32 (wData, wlastData, (r*numRows));
 
+/////////*Update weights using kurtosis*//////////////////////////////////////////////////
 		arm_mat_mult_f32 (&W, &Z, &Sk);
 
 		for(i=0; i<(r*numCols); i++){
@@ -88,8 +86,10 @@ void fastICA(arm_matrix_instance_f32 *matrix, arm_matrix_instance_f32 *Zica, uin
 
 		normRows(&W, &Wn);
 
+/////////*Decorrelate weights*/////////////////////////////////////////////////////////////
 		decorrelate(&Wn, &W, &Wn);
 
+/////////*Update convergence criteria*/////////////////////////////////////////////////////////////
 		for(i=0; i<r; i++){
 			arm_dot_prod_f32 ( &wData[i*numRows], &wlastData[i*numRows], numRows, &muData[i]);
 		}
@@ -103,6 +103,7 @@ void fastICA(arm_matrix_instance_f32 *matrix, arm_matrix_instance_f32 *Zica, uin
 
 	}
 
+////*Independent components*/////////////////////////////////////////////////////////////
 	arm_mat_mult_f32 (&W, &Z, Zica);
 
 
